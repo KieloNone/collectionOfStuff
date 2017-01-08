@@ -1,3 +1,6 @@
 *debug*
+*Debug*
+obj/linux64/Debug/.compiler_flags
 *.o
 *.d
+*~
