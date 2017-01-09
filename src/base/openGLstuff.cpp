@@ -1,6 +1,7 @@
 #include "openGLstuff.h"
 #include "ofMain.h"
 #include "misc.h"
+#include "ofxAssimpModelLoader.h"
 
 void openGLexample::setup(){
 
@@ -11,13 +12,23 @@ void openGLexample::setup(){
 	image1.load("bin/data/koira.png");
 	//
 
+	//data fir cubemap
+	vector<const GLchar*> faces;
+	faces.push_back("bin/data/koira.png");
+	faces.push_back("bin/data/koira.png");
+	faces.push_back("bin/data/koira.png");
+	faces.push_back("bin/data/koira.png");
+	faces.push_back("bin/data/koira.png");
+	faces.push_back("bin/data/koira.png");
 
-	ourMesh.addVertex(ofVec3f(1.0,1.0,0.0));ourMesh.addVertex(ofVec3f(1.0,-1.0,0.0));ourMesh.addVertex(ofVec3f(-1.0,1.0,0.0));
-	ourMesh.addVertex(ofVec3f(1.0,-1.0,0.0));ourMesh.addVertex(ofVec3f(-1.0,-1.0,0.0));ourMesh.addVertex(ofVec3f(-1.0,1.0,0.0));
 
+	//loading a cube, using motorsaw when a knife would have been enough
+	ofxAssimpModelLoader modelLoader;
+	if(modelLoader.loadModel("cube.obj",false)){
+		ourMesh=modelLoader.getMesh(0);
+	}
 
-	ourMesh.addTexCoord(ofVec2f(0.0,0.0));ourMesh.addTexCoord(ofVec2f(0.0,1.0));ourMesh.addTexCoord(ofVec2f(1.0,0.0));
-	ourMesh.addTexCoord(ofVec2f(0.0,1.0));ourMesh.addTexCoord(ofVec2f(1.0,1.0));ourMesh.addTexCoord(ofVec2f(1.0,0.0));
+	ourMesh2.addVertices(ourMesh.getVertices());
 
 	//getting the appropriate matrixes
 	ofMatrix4x4 Projection= ofMatrix4x4::newPerspectiveMatrix(45.0f, 1024.0 /768.0, 0.1f, 100.0f);
@@ -35,49 +46,66 @@ void openGLexample::setup(){
 	//not sure what the following does but it is necessary:
 	glGenVertexArrays(1, &m_VertexArrayID);
 	glBindVertexArray(m_VertexArrayID);
-
-
-
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
 	glDepthFunc(GL_LESS);
 
+
+
+
 	//creating shaders
-	m_programID=loadShaders("bin/data/shader.vert","bin/data/shader.frag");
+	m_programID[0]=loadShaders("bin/data/shader.vert","bin/data/shader.frag");
+	m_programID[1]=loadShaders("bin/data/cubemap.vert","bin/data/cubemap.frag");
+
 	//creating textures
 	m_textures[0]=configure_texture2D(image0);
 	m_textures[1]=configure_texture2D(image1);
+	m_textures[2]=configure_cubeMap(faces);
 
 	//our shader has texture samplers "kissa and koira". The following get's their locations
-	m_textureLocations[0] = glGetUniformLocation(m_programID, "kissa");
-	m_textureLocations[1] = glGetUniformLocation(m_programID, "koira");
+	m_textureLocations[0] = glGetUniformLocation(m_programID[0], "kissa");
+	m_textureLocations[1] = glGetUniformLocation(m_programID[0], "koira");
+	m_textureLocations[2] = glGetUniformLocation(m_programID[1], "skybox");
 
 	//creating our object, currently just creates vertex and uv buffers...
-	m_flag=configure_object(ourMesh, m_vertexBufferID,m_colorBufferID,m_uvBufferID,m_indexBufferID);
+	m_flag[0]=configure_object(ourMesh, m_vertexBufferID,m_colorBufferID,m_uvBufferID,m_indexBufferID);
+	m_numVertices = ourMesh.getNumVertices();
+	m_flag[1]=configure_object(ourMesh2, m_vertexBufferID2,m_colorBufferID,m_colorBufferID,m_indexBufferID);
 	m_numVertices = ourMesh.getNumVertices();
 }
 
 void openGLexample::draw(){
 
+	GLuint mvp_handle;
 	//we need to clear the color and depth buffers to avoid artifacts
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	//telling GPU which shader program to use
-    glUseProgram(m_programID);
+	glDepthMask(GL_FALSE);
+	glUseProgram(m_programID[1]);
+	draw_object(m_vertexBufferID2,m_vertexBufferID2, m_numVertices,m_flag[1]);
+    mvp_handle = glGetUniformLocation(m_programID[1], "PV");
+    glUniformMatrix4fv(mvp_handle, 1, GL_FALSE, m_PV.getPtr());
+	draw_texture(m_textures[2],m_textureLocations[2],GL_TEXTURE_CUBE_MAP,0);
+
+
+	glDepthMask(GL_TRUE);
+
+    glUseProgram(m_programID[0]);
 
     //telling GPU to draw our vertices
-    draw_object(m_vertexBufferID,m_uvBufferID, m_numVertices);
+    draw_object(m_vertexBufferID,m_uvBufferID, m_numVertices,m_flag[0]);
 
     // sending matrix "mvp" to shader location "uniform mat4 MVP"
     // also adding some rotation in model space
-    GLuint mvp_handle = glGetUniformLocation(m_programID, "MVP");
+    mvp_handle = glGetUniformLocation(m_programID[0], "MVP");
     m_Model.rotate(0.1f,0,1,0);
     ofMatrix4x4 mvp=m_Model*m_PV;
     glUniformMatrix4fv(mvp_handle, 1, GL_FALSE, mvp.getPtr());
 
     //sending textures to GPU
-    draw_texture(m_textures[0],m_textureLocations[0],0);
-    draw_texture(m_textures[1],m_textureLocations[1],1);
+    draw_texture(m_textures[0],m_textureLocations[0],GL_TEXTURE_2D,0);
+    draw_texture(m_textures[1],m_textureLocations[1],GL_TEXTURE_2D,1);
 }
 
 GLuint configure_texture2D(ofImage image){
@@ -103,6 +131,41 @@ GLuint configure_texture2D(ofImage image){
     glBindTexture(GL_TEXTURE_2D, 0);
 
     return textureID;
+
+}
+
+GLuint configure_cubeMap(vector<const GLchar*> & faces){
+
+	//tutorial for this: https://learnopengl.com/?_escaped_fragment_=Advanced-OpenGL/Cubemaps#!Advanced-OpenGL/Cubemaps
+	//this function is pretty similar to that of configure_texture2D with the exeption that we need to load 6 images (one for each face)
+
+	GLuint textureID;
+	//generating texture pointer
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	ofImage image;
+	int width;
+	int height;
+	unsigned char * data;
+	for(GLuint i = 0; i < faces.size(); i++){
+		image.load(faces[i]);
+		width=image.getWidth();
+		height=image.getHeight();
+		data=image.getPixels().getData();
+	    glTexImage2D(
+	            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
+	            GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	    }
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	//what to do when the texture coordinates go out of bounds
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); // one addition dimension
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	return textureID;
 
 }
 
@@ -153,7 +216,7 @@ int configure_object(ofMesh & mesh, GLuint& vertexBufferID,GLuint& colorBufferID
 }
 
 
-void draw_object(GLuint vertexBufferID,GLuint  uvBufferID, int numVertices){
+void draw_object(GLuint vertexBufferID,GLuint  uvBufferID, int numVertices, int flag){
 	glEnableVertexAttribArray(0); // 1rst attribute buffer : vertices
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
 	glVertexAttribPointer(
@@ -165,27 +228,28 @@ void draw_object(GLuint vertexBufferID,GLuint  uvBufferID, int numVertices){
 			(void*)0            // array buffer offset
 	);
 	//inserting uv to the gpu
-	glEnableVertexAttribArray(1); //layout=1
-	glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
-	glVertexAttribPointer(
-			1,                                // attribute.
-			2,                                // size 2!!!!!!!!!!!!!!!!
-			GL_FLOAT,                         // type
-			GL_FALSE,                         // normalized?
-			0,                                // stride
-			(void*)0                          // array buffer offset
-	);
-
+	if(flag & 4){
+		glEnableVertexAttribArray(1); //layout=1
+		glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
+		glVertexAttribPointer(
+				1,                                // attribute.
+				2,                                // size 2!!!!!!!!!!!!!!!!
+				GL_FLOAT,                         // type
+				GL_FALSE,                         // normalized?
+				0,                                // stride
+				(void*)0                          // array buffer offset
+		);
+	}
 	glDrawArrays(GL_TRIANGLES, 0, numVertices);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 }
 
-void draw_texture(GLuint texture,GLuint textureID, GLuint position){
+void draw_texture(GLuint texture,GLuint textureID, GLuint type, GLuint position){
 	// activating the texture number <position>
     glActiveTexture(GL_TEXTURE0 + position);
     // binding our texture to context
-    glBindTexture(GL_TEXTURE_2D,texture);
+    glBindTexture(type,texture);
     // saying that texture number <position> should be bound to variable textureID
     glUniform1i(textureID,position);
 
