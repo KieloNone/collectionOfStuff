@@ -2,6 +2,7 @@
 
 #include "ofMain.h"
 #include "openGLstuff.h"
+#include "scenes.h"
 
 class ofApp : public ofBaseApp{
 
@@ -24,6 +25,7 @@ class ofApp : public ofBaseApp{
 		
 	private:
 		openGLexample example;
+		scene1 scenexample;
 
 
 };

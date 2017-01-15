@@ -7,6 +7,6 @@ uniform mat4 PV;
 
 void main()
 {
-    gl_Position =   PV * vec4(10*position, 1.0);  
+    gl_Position =   PV * vec4(position, 1.0);  
     TexCoords = 10*position;
 }  

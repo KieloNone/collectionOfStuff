@@ -1,9 +1,10 @@
 #include "ofApp.h"
+#include "scenes.h"
 
 //--------------------------------------------------------------
 void ofApp::setup(){
 
-	example.setup();
+	scenexample.setup();
 
 }
 
@@ -14,12 +15,13 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	example.draw();
+	scenexample.draw();
 
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
+	scenexample.keyPressed(key);
 
 }
 

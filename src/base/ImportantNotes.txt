@@ -1,0 +1,21 @@
+I've made some modifications to openFrameworks
+
+I edited inline ofMatrix4x4 operator * ( const ofMatrix4x4 &m )
+
+inline ofMatrix4x4 operator * ( const ofMatrix4x4 &m ) const {
+	ofMatrix4x4 r;
+	//r.makeFromMultiplicationOf(*this, m); //commented out
+	r.makeFromMultiplicationOf(m,*this); //Edited
+	return  r;
+}
+
+Added multiplication with constant
+inline ofMatrix4x4 operator * ( float a ) const {
+	ofMatrix4x4 r;
+	for (unsigned int j=0; j<4; j++){
+		for (unsigned int k=0; k<4; k++){
+			r._mat[j][k]=a*this->_mat[j][k];
+		}
+	}
+	return  r;
+}
